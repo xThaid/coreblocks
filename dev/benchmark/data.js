@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713105787026,
+  "lastUpdate": 1713108924728,
   "repoUrl": "https://github.com/xThaid/coreblocks",
   "entries": {
     "Performance (IPC)": [
@@ -10559,6 +10559,70 @@ window.BENCHMARK_DATA = {
           {
             "name": "slre",
             "value": 0.2559893748467081,
+            "unit": "Instructions Per Cycle"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jacob@urbanczyk.dev",
+            "name": "Jacob Urbanczyk",
+            "username": "xThaid"
+          },
+          "committer": {
+            "email": "jacob@urbanczyk.dev",
+            "name": "Jacob Urbanczyk",
+            "username": "xThaid"
+          },
+          "distinct": false,
+          "id": "4d99f5f5e8918fe09d90cf4d0eb012ab95b325d5",
+          "message": "wip",
+          "timestamp": "2024-04-14T17:17:48+02:00",
+          "tree_id": "4e2a27759ddcdcc18ce7a940232b5634d0046586",
+          "url": "https://github.com/xThaid/coreblocks/commit/4d99f5f5e8918fe09d90cf4d0eb012ab95b325d5"
+        },
+        "date": 1713108921740,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "statemate",
+            "value": 0.30413608847103385,
+            "unit": "Instructions Per Cycle"
+          },
+          {
+            "name": "aha-mont64",
+            "value": 0.4039033296734477,
+            "unit": "Instructions Per Cycle"
+          },
+          {
+            "name": "ud",
+            "value": 0.39809156081305413,
+            "unit": "Instructions Per Cycle"
+          },
+          {
+            "name": "slre",
+            "value": 0.2559893748467081,
+            "unit": "Instructions Per Cycle"
+          },
+          {
+            "name": "crc32",
+            "value": 0.45704217932358554,
+            "unit": "Instructions Per Cycle"
+          },
+          {
+            "name": "nsichneu",
+            "value": 0.3446809120073327,
+            "unit": "Instructions Per Cycle"
+          },
+          {
+            "name": "nettle-sha256",
+            "value": 0.6434440067529544,
+            "unit": "Instructions Per Cycle"
+          },
+          {
+            "name": "minver",
+            "value": 0.3111595213198559,
             "unit": "Instructions Per Cycle"
           }
         ]
