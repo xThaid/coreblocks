@@ -114,7 +114,8 @@ jobs:
       - name: Run benchmarks
         run: |
           . venv/bin/activate
-          scripts/run_benchmarks.py -o perf_benchmark.json
+          scripts/run_benchmarks.py -o perf_benchmark.json --summary perf.md
+          cat perf.md >> $GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@v4
         with:
@@ -128,6 +129,8 @@ jobs:
     timeout-minutes: 5
     needs: [run-perf-benchmarks, synthesis]
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: perf_benchmark_results
