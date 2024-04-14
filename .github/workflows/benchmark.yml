@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         config: [basic, full]
-    name: Synthesis benchmarks
+    name: Run synthesis benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 40
     container: ghcr.io/kuznia-rdzeni/amaranth-synth:ecp5-2023.11.19_v
@@ -46,19 +46,14 @@ jobs:
       - name: Collect Benchmark information
         run: |
           . venv/bin/activate
-          ./scripts/parse_benchmark_info.py
-          cat ./benchmark.json
+          ./scripts/parse_benchmark_info.py -o synth-benchmark-${{ matrix.config }}.json
+          cat ./synth-benchmark-${{ matrix.config }}.json
 
-      - name: Store benchmark result (Fmax)
-        uses: benchmark-action/github-action-benchmark@v1
-        if: github.ref == 'refs/heads/master'
+      - uses: actions/upload-artifact@v4
         with:
-          name: Fmax and LCs (${{ matrix.config }})
-          tool: 'customBiggerIsBetter'
-          output-file-path: './benchmark.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          benchmark-data-dir-path: "dev/benchmark"
+          name: synth_benchmark_results-${{ matrix.config }}
+          path: synth-benchmark-${{ matrix.config }}.json
+  
 
   build-perf-benchmarks:
     name: Build performance benchmarks
@@ -119,15 +114,69 @@ jobs:
       - name: Run benchmarks
         run: |
           . venv/bin/activate
-          scripts/run_benchmarks.py
+          scripts/run_benchmarks.py -o perf_benchmark.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perf_benchmark_results
+          path: perf_benchmark.json
+
+  publish-benchmarks:
+    name: Publish benchmarks
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [run-perf-benchmarks, synthesis]
+      - uses: actions/download-artifact@v4
+        with:
+          name: perf_benchmark_results
+          path: perf_benchmark.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: synth_benchmark_results-basic
+          path: synth-benchmark-basic.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: synth_benchmark_results-full
+          path: synth-benchmark-full.json
+
+      - name: Put results in a cache
+        uses: actions/cache@v4
+        env:
+          cache-name: benchmark-results
+        with:
+          key: ${{ env.cache-name }}-${{ runner.os }}-${{ github.sha }}
+          path: |
+            perf_benchmark.json
+            synth-benchmark-basic.json
+            synth-benchmark-full.json
 
       - name: Store benchmark result (IPC)
         uses: benchmark-action/github-action-benchmark@v1
-        if: github.ref == 'refs/heads/master'
         with:
           name: Performance (IPC)
           tool: 'customBiggerIsBetter'
-          output-file-path: './benchmark.json'
+          output-file-path: './perf_benchmark.json'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          benchmark-data-dir-path: "dev/benchmark"
+
+      - name: Store synthesis benchmark result (basic)
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Fmax and LCs (basic)
+          tool: 'customBiggerIsBetter'
+          output-file-path: './synth-benchmark-basic.json.json'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          benchmark-data-dir-path: "dev/benchmark"
+      
+      - name: Store synthesis benchmark result (full)
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Fmax and LCs (full)
+          tool: 'customBiggerIsBetter'
+          output-file-path: './synth-benchmark-full.json.json'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
