@@ -131,15 +131,15 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: perf_benchmark_results
-          path: perf_benchmark.json
+          path: .
       - uses: actions/download-artifact@v4
         with:
           name: synth_benchmark_results-basic
-          path: synth-benchmark-basic.json
+          path: .
       - uses: actions/download-artifact@v4
         with:
           name: synth_benchmark_results-full
-          path: synth-benchmark-full.json
+          path: .
 
       - name: Put results in a cache
         uses: actions/cache@v4
@@ -167,7 +167,7 @@ jobs:
         with:
           name: Fmax and LCs (basic)
           tool: 'customBiggerIsBetter'
-          output-file-path: './synth-benchmark-basic.json.json'
+          output-file-path: './synth-benchmark-basic.json'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
@@ -177,7 +177,7 @@ jobs:
         with:
           name: Fmax and LCs (full)
           tool: 'customBiggerIsBetter'
-          output-file-path: './synth-benchmark-full.json.json'
+          output-file-path: './synth-benchmark-full.json'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
