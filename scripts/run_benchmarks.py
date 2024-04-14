@@ -200,7 +200,6 @@ def main():
 
     if args.summary != "":
         with open(args.summary, "w") as summary_file:
-            print("# Performance benchmarks metrics", file=summary_file)
             print(build_result_table(results, "github"), file=summary_file)
 
     with open(args.output, "w") as benchmark_file:

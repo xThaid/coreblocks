@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
 
 jobs:
@@ -121,6 +124,40 @@ jobs:
         with:
           name: perf_benchmark_results
           path: perf_benchmark.json
+
+  pr-summary:
+    name: Create benchmark summary for a pull request
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+#    needs: [run-perf-benchmarks, synthesis]
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Get baseline benchmarks results
+        uses: actions/cache@v4
+        env:
+          cache-name: benchmark-results
+        with:
+          key: ${{ env.cache-name }}-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
+          path: |
+            perf_benchmark.json
+            synth-benchmark-basic.json
+            synth-benchmark-full.json
+
+      - name: Publish a summary as a comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '👋 Thanks for reporting!'
+            })
 
   publish-benchmarks:
     name: Publish benchmarks
