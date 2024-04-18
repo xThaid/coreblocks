@@ -10,21 +10,28 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  BENCHMARK_LABEL: benchmark
+
 jobs:
   synthesis:
     strategy:
       matrix:
         config: [basic, full]
     name: Run synthesis benchmarks
-    if: github.ref == 'refs/heads/master' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'benchmark')) || github.event.label.name == 'benchmark'
+    if: >
+      github.ref == 'refs/heads/master' || 
+      (
+        github.event_name == 'pull_request' &&
+        (
+          (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, $BENCHMARK_LABEL)) ||
+          (github.event.action == 'labeled' && github.event.label.name == $BENCHMARK_LABEL)
+        )
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 40
     container: ghcr.io/kuznia-rdzeni/amaranth-synth:ecp5-2023.11.19_v
     steps:
-      - name: Install dependencies
-        run: |
-          echo ${{ github.event_name }}
-          echo ${{ toJson(github.event) }}
       - uses: actions/checkout@v4
 
       - name: Set ownership (Github Actions workaround)
@@ -67,7 +74,15 @@ jobs:
   build-perf-benchmarks:
     name: Build performance benchmarks
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'benchmark')) || github.event.label.name == 'benchmark'
+    if: >
+      github.ref == 'refs/heads/master' || 
+      (
+        github.event_name == 'pull_request' &&
+        (
+          (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, BENCHMARK_LABEL)) ||
+          (github.event.action == 'labeled' && github.event.label.name == BENCHMARK_LABEL)
+        )
+      )
     container: ghcr.io/kuznia-rdzeni/riscv-toolchain:2024.03.12
     steps:
       - name: Checkout
