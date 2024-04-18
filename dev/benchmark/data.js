@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713440843767,
+  "lastUpdate": 1713443618024,
   "repoUrl": "https://github.com/xThaid/coreblocks",
   "entries": {
     "Performance (IPC)": [
@@ -10645,6 +10645,33 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/xThaid/coreblocks/commit/4f63eeb9b1d539811aca1db6fb8449e38d151aed"
         },
         "date": 1713440837555,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "statemate",
+            "value": 0.30413608847103385,
+            "unit": "Instructions Per Cycle"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jacob Urbanczyk",
+            "username": "xThaid",
+            "email": "jacob@urbanczyk.dev"
+          },
+          "committer": {
+            "name": "Jacob Urbanczyk",
+            "username": "xThaid",
+            "email": "jacob@urbanczyk.dev"
+          },
+          "id": "4c552a179869a2ef85ae84683872afbc50ef3b3b",
+          "message": "dump",
+          "timestamp": "2024-04-18T12:27:52Z",
+          "url": "https://github.com/xThaid/coreblocks/commit/4c552a179869a2ef85ae84683872afbc50ef3b3b"
+        },
+        "date": 1713443614532,
         "tool": "customBiggerIsBetter",
         "benches": [
           {
