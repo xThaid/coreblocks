@@ -43,7 +43,7 @@ jobs:
       - name: Synthesize
         run: |
           . venv/bin/activate
-          PYTHONHASHSEED=0 ./scripts/synthesize.py --verbose --strip-debug --config ${{ matrix.config }}
+          PYTHONHASHSEED=0 ./scripts/synthesize.py --verbose --strip-debug --config basic
 
       - name: Print synthesis information
         run: cat ./build/top.tim
