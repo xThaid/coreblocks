@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713108927448,
+  "lastUpdate": 1713440840467,
   "repoUrl": "https://github.com/xThaid/coreblocks",
   "entries": {
     "Performance (IPC)": [
@@ -10623,6 +10623,33 @@ window.BENCHMARK_DATA = {
           {
             "name": "minver",
             "value": 0.3111595213198559,
+            "unit": "Instructions Per Cycle"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jacob Urbanczyk",
+            "username": "xThaid",
+            "email": "jacob@urbanczyk.dev"
+          },
+          "committer": {
+            "name": "Jacob Urbanczyk",
+            "username": "xThaid",
+            "email": "jacob@urbanczyk.dev"
+          },
+          "id": "4f63eeb9b1d539811aca1db6fb8449e38d151aed",
+          "message": "permissions",
+          "timestamp": "2024-04-18T11:41:46Z",
+          "url": "https://github.com/xThaid/coreblocks/commit/4f63eeb9b1d539811aca1db6fb8449e38d151aed"
+        },
+        "date": 1713440837555,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "statemate",
+            "value": 0.30413608847103385,
             "unit": "Instructions Per Cycle"
           }
         ]
