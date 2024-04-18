@@ -7,6 +7,12 @@ on:
       - completed
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo ${{ toJson(github.event.workflow_run) }}
+
   pr-summary:
     name: Create a benchmark summary for the pull request
     runs-on: ubuntu-latest
