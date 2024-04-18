@@ -7,20 +7,13 @@ on:
       - completed
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo ${{ github.event.workflow_run.conclusion }}
-          echo ${{ github.event.workflow_run.event }}
-          echo ${{ github.event.workflow_run.pull_requests}}
-          echo ${{ github.event.workflow_run.head_branch }}
-          echo ${{ github.event.workflow_run.id }}
   pr-summary:
     name: Create a benchmark summary for the pull request
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
     timeout-minutes: 5
+    permissions:
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,16 +49,19 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
           name: perf_benchmark_results
           path: artifacts
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
           name: synth_benchmark_results-basic
           path: artifacts
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
           name: synth_benchmark_results-full
           path: artifacts
 
@@ -94,7 +90,7 @@ jobs:
         with:
           script: |
             github.rest.issues.createComment({
-              issue_number: ${{ github.event.workflow_run.pull_requests[0].id }},
+              issue_number: ${{ github.event.workflow_run.pull_requests[0].number }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `${{steps.createComment.outputs.comment_content}}`
@@ -105,22 +101,27 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'master' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
           name: perf_benchmark_results
           path: .
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
           name: synth_benchmark_results-basic
           path: .
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
           name: synth_benchmark_results-full
           path: .
 
@@ -141,7 +142,7 @@ jobs:
           name: Performance (IPC)
           tool: 'customBiggerIsBetter'
           output-file-path: './perf_benchmark.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
 
@@ -151,7 +152,7 @@ jobs:
           name: Fmax and LCs (basic)
           tool: 'customBiggerIsBetter'
           output-file-path: './synth-benchmark-basic.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
 
@@ -161,6 +162,6 @@ jobs:
           name: Fmax and LCs (full)
           tool: 'customBiggerIsBetter'
           output-file-path: './synth-benchmark-full.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
