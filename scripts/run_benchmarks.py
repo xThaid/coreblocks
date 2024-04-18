@@ -178,7 +178,7 @@ def main():
     if args.profile:
         os.environ["__TRANSACTRON_PROFILE"] = "1"
 
-    success = run_benchmarks("statemate", args.backend, args.trace)
+    success = run_benchmarks(["statemate"], args.backend, args.trace)
     if not success:
         print("Benchmark execution failed")
         sys.exit(1)
