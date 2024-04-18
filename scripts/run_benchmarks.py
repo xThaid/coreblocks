@@ -175,6 +175,8 @@ def main():
             print(f"Could not find benchmark '{args.benchmark_name}'")
             sys.exit(1)
 
+    benchmarks = ["statemate"]
+
     if args.profile:
         os.environ["__TRANSACTRON_PROFILE"] = "1"
 
