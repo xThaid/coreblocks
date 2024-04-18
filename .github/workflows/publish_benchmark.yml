@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
     timeout-minutes: 5
+    permissions:
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -97,7 +99,7 @@ jobs:
         with:
           script: |
             github.rest.issues.createComment({
-              issue_number: ${{ github.event.workflow_run.pull_requests[0].id }},
+              issue_number: ${{ github.event.workflow_run.pull_requests[0].number }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `${{steps.createComment.outputs.comment_content}}`
@@ -108,6 +110,8 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'master' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      pages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -147,7 +151,7 @@ jobs:
           name: Performance (IPC)
           tool: 'customBiggerIsBetter'
           output-file-path: './perf_benchmark.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
 
@@ -157,7 +161,7 @@ jobs:
           name: Fmax and LCs (basic)
           tool: 'customBiggerIsBetter'
           output-file-path: './synth-benchmark-basic.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
 
@@ -167,6 +171,6 @@ jobs:
           name: Fmax and LCs (full)
           tool: 'customBiggerIsBetter'
           output-file-path: './synth-benchmark-full.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           auto-push: true
           benchmark-data-dir-path: "dev/benchmark"
