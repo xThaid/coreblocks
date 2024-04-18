@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713440840467,
+  "lastUpdate": 1713440842161,
   "repoUrl": "https://github.com/xThaid/coreblocks",
   "entries": {
     "Performance (IPC)": [
@@ -25386,6 +25386,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "Device utilisation: (ECP5)",
             "value": 22728,
+            "unit": "LUT4"
+          },
+          {
+            "name": "LUTs used as carry: (ECP5)",
+            "value": 802,
+            "unit": "LUT"
+          },
+          {
+            "name": "LUTs used as ram: (ECP5)",
+            "value": 1004,
+            "unit": "LUT"
+          },
+          {
+            "name": "LUTs used as DFF: (ECP5)",
+            "value": 5560,
+            "unit": "LUT"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jacob Urbanczyk",
+            "username": "xThaid",
+            "email": "jacob@urbanczyk.dev"
+          },
+          "committer": {
+            "name": "Jacob Urbanczyk",
+            "username": "xThaid",
+            "email": "jacob@urbanczyk.dev"
+          },
+          "id": "4f63eeb9b1d539811aca1db6fb8449e38d151aed",
+          "message": "permissions",
+          "timestamp": "2024-04-18T11:41:46Z",
+          "url": "https://github.com/xThaid/coreblocks/commit/4f63eeb9b1d539811aca1db6fb8449e38d151aed"
+        },
+        "date": 1713440841666,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "Max clock frequency (Fmax)",
+            "value": 46.74,
+            "unit": "MHz"
+          },
+          {
+            "name": "Device utilisation: (ECP5)",
+            "value": 23581,
             "unit": "LUT4"
           },
           {
