@@ -21,6 +21,10 @@ jobs:
     timeout-minutes: 40
     container: ghcr.io/kuznia-rdzeni/amaranth-synth:ecp5-2023.11.19_v
     steps:
+      - name: Install dependencies
+        run: |
+          echo ${{ github.event_name }}
+          echo ${{ toJson(github.event) }}
       - uses: actions/checkout@v4
 
       - name: Set ownership (Github Actions workaround)
