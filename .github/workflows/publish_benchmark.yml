@@ -10,7 +10,7 @@ jobs:
   pr-summary:
     name: Create a benchmark summary for the pull request
     runs-on: ubuntu-latest
-    if: ${{ github.workflow_run.event == 'pull_request' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.workflow_run.event == 'pull_request' }}
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -93,10 +93,9 @@ jobs:
 
   publish-benchmarks:
     name: Publish benchmarks
-    if: ${{ github.workflow_run.head_branch == 'refs/heads/master' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.workflow_run.head_branch == 'refs/heads/master' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [run-perf-benchmarks, synthesis]
     steps:
       - uses: actions/checkout@v4
 
@@ -121,7 +120,7 @@ jobs:
         env:
           cache-name: benchmark-results
         with:
-          key: ${{ env.cache-name }}-${{ runner.os }}-${{ github.sha }}
+          key: ${{ env.cache-name }}-${{ runner.os }}-${{ github.event.workflow_run.head_sha }}
           path: |
             perf_benchmark.json
             synth-benchmark-basic.json
