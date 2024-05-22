@@ -3,11 +3,11 @@ from coreblocks.interface.layouts import RetirementLayouts
 
 from transactron.core import Method, Transaction, TModule, def_method
 from transactron.lib.simultaneous import condition
-from transactron.utils.dependencies import DependencyManager
+from transactron.utils.dependencies import DependencyContext
 from transactron.lib.metrics import *
 
 from coreblocks.params.genparams import GenParams
-from coreblocks.frontend.decoder.isa import ExceptionCause
+from coreblocks.arch import ExceptionCause
 from coreblocks.interface.keys import CoreStateKey, GenericCSRRegistersKey, InstructionPrecommitKey
 from coreblocks.priv.csr.csr_instances import CSRAddress, DoubleCounterCSR
 
@@ -46,8 +46,14 @@ class Retirement(Elaboratable):
 
         self.instret_csr = DoubleCounterCSR(gen_params, CSRAddress.INSTRET, CSRAddress.INSTRETH)
         self.perf_instr_ret = HwCounter("backend.retirement.retired_instr", "Number of retired instructions")
+        self.perf_trap_latency = FIFOLatencyMeasurer(
+            "backend.retirement.trap_latency",
+            "Cycles spent flushing the core after a trap",
+            slots_number=1,
+            max_latency=2 * 2**gen_params.rob_entries_bits,
+        )
 
-        self.dependency_manager = gen_params.get(DependencyManager)
+        self.dependency_manager = DependencyContext.get()
         self.core_state = Method(o=self.gen_params.get(RetirementLayouts).core_state, nonexclusive=True)
         self.dependency_manager.add_dependency(CoreStateKey(), self.core_state)
 
@@ -57,7 +63,7 @@ class Retirement(Elaboratable):
     def elaborate(self, platform):
         m = TModule()
 
-        m.submodules += [self.perf_instr_ret]
+        m.submodules += [self.perf_instr_ret, self.perf_trap_latency]
 
         m_csr = self.dependency_manager.get_dependency(GenericCSRRegistersKey()).m_mode
         m.submodules.instret_csr = self.instret_csr
@@ -115,6 +121,8 @@ class Retirement(Elaboratable):
                     commit = Signal()
 
                     with m.If(rob_entry.exception):
+                        self.perf_trap_latency.start(m)
+
                         cause_register = self.exception_cause_get(m)
 
                         cause_entry = Signal(self.gen_params.isa.xlen)
@@ -164,10 +172,10 @@ class Retirement(Elaboratable):
                         m.d.av_comb += commit.eq(1)
 
                     # Condition is used to avoid FRAT locking during normal operation
-                    with condition(m, priority=False) as cond:
+                    with condition(m) as cond:
                         with cond(commit):
                             retire_instr(rob_entry)
-                        with cond(~commit):
+                        with cond():
                             # Not using default condition, because we want to block if branch is not ready
                             flush_instr(rob_entry)
 
@@ -193,6 +201,7 @@ class Retirement(Elaboratable):
             with m.State("TRAP_RESUME"):
                 with Transaction().body(m):
                     # Resume core operation
+                    self.perf_trap_latency.stop(m)
 
                     handler_pc = Signal(self.gen_params.isa.xlen)
                     # mtvec without mode is [mxlen-1:2], mode is two last bits. Only direct mode is supported
@@ -201,7 +210,7 @@ class Retirement(Elaboratable):
                     resume_pc = Mux(continue_pc_override, continue_pc, handler_pc)
                     m.d.sync += continue_pc_override.eq(0)
 
-                    self.fetch_continue(m, pc=resume_pc, resume_from_exception=1)
+                    self.fetch_continue(m, pc=resume_pc)
 
                     # Release pending trap state - allow accepting new reports
                     self.exception_cause_clear(m)
