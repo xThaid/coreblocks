@@ -1,4 +1,5 @@
 from amaranth import *
+from amaranth.lib.coding import PriorityEncoder
 from typing import TYPE_CHECKING
 from transactron.utils import *
 
@@ -37,10 +38,23 @@ def eager_deterministic_cc_scheduler(
     m = Module()
     ccl = list(cc)
     ccl.sort(key=lambda transaction: porder[transaction])
+
+    clique = True
     for k, transaction in enumerate(ccl):
-        conflicts = [ccl[j].grant for j in range(k) if ccl[j] in gr[transaction]]
-        noconflict = ~Cat(conflicts).any()
-        m.d.comb += transaction.grant.eq(transaction.request & transaction.runnable & noconflict)
+        for j in range(k):
+            if ccl[j] not in gr[transaction]:
+                clique = False
+
+    if clique and len(ccl) > 1:
+        m.submodules.prio_enc = prio_enc = PriorityEncoder(len(ccl))
+        for k, transaction in enumerate(ccl):
+            m.d.comb += prio_enc.i[k].eq(transaction.request & transaction.runnable)
+            m.d.comb += transaction.grant.eq((prio_enc.o == k) & ~prio_enc.n)
+    else:
+        for k, transaction in enumerate(ccl):
+            conflicts = [ccl[j].grant for j in range(k) if ccl[j] in gr[transaction]]
+            noconflict = ~Cat(conflicts).any()
+            m.d.comb += transaction.grant.eq(transaction.request & transaction.runnable & noconflict)
     return m
 
 
