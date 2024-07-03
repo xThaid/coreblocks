@@ -110,7 +110,7 @@ class Renaming(Elaboratable):
                 rp_dst=instr.regs_p.rp_dst,
             )
 
-            m.d.comb += assign(data_out, instr, fields={"exec_fn", "imm", "csr", "pc"})
+            m.d.comb += assign(data_out, instr, fields={"exec_fn", "imm", "csr", "pc", "ftq_addr"})
             m.d.comb += assign(data_out.regs_l, instr.regs_l, fields=AssignType.COMMON)
             m.d.comb += data_out.regs_p.rp_dst.eq(instr.regs_p.rp_dst)
             m.d.comb += data_out.regs_p.rp_s1.eq(renamed_regs.rp_s1)
@@ -162,6 +162,7 @@ class ROBAllocation(Elaboratable):
                 m,
                 rl_dst=instr.regs_l.rl_dst,
                 rp_dst=instr.regs_p.rp_dst,
+                fb_instr_idx=instr.ftq_addr.fb_instr_idx,
             )
 
             m.d.comb += assign(data_out, instr, fields=AssignType.COMMON)
@@ -316,6 +317,7 @@ class RSInsertion(Elaboratable):
                     "imm": instr.imm,
                     "csr": instr.csr,
                     "pc": instr.pc,
+                    "ftq_addr": instr.ftq_addr,
                 },
             }
 

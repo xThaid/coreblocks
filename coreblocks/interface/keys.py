@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from transactron.lib.dependencies import SimpleKey, UnifierKey, ListKey
+from transactron.lib.dependencies import SimpleKey, ListKey
 from transactron import Method
-from transactron.lib import Collector
 from coreblocks.peripherals.bus_adapter import BusMasterInterface
 from amaranth import Signal
 
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
 __all__ = [
     "CommonBusDataKey",
     "InstructionPrecommitKey",
-    "BranchVerifyKey",
+    "MispredictionReportKey",
     "PredictedJumpTargetKey",
     "FetchResumeKey",
     "ExceptionReportKey",
@@ -38,22 +37,22 @@ class InstructionPrecommitKey(SimpleKey[Method]):
 
 
 @dataclass(frozen=True)
-class BranchVerifyKey(SimpleKey[Method]):
-    pass
-
-
-@dataclass(frozen=True)
 class PredictedJumpTargetKey(SimpleKey[tuple[Method, Method]]):
     pass
 
 
 @dataclass(frozen=True)
-class FetchResumeKey(UnifierKey, unifier=Collector):
+class FetchResumeKey(SimpleKey[Method]):
     pass
 
 
 @dataclass(frozen=True)
 class ExceptionReportKey(SimpleKey[Method]):
+    pass
+
+
+@dataclass(frozen=True)
+class MispredictionReportKey(SimpleKey[Method]):
     pass
 
 

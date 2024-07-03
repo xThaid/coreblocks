@@ -14,7 +14,7 @@ from coreblocks.arch import Funct3, OpType, ExceptionCause, Extension
 from coreblocks.interface.layouts import FuncUnitLayouts, JumpBranchLayouts, CommonLayoutFields
 from coreblocks.interface.keys import (
     AsyncInterruptInsertSignalKey,
-    BranchVerifyKey,
+    MispredictionReportKey,
     ExceptionReportKey,
     PredictedJumpTargetKey,
 )
@@ -135,12 +135,7 @@ class JumpBranchFuncUnit(FuncUnit, Elaboratable):
         self.issue = Method(i=layouts.issue)
         self.accept = Method(o=layouts.accept)
 
-        self.fifo_branch_resolved = FIFO(self.gen_params.get(JumpBranchLayouts).verify_branch, 2)
-
         self.jb_fn = jb_fn
-
-        self.dm = DependencyContext.get()
-        self.dm.add_dependency(BranchVerifyKey(), self.fifo_branch_resolved.read)
 
         self.perf_instr = TaggedCounter(
             "backend.fu.jumpbranch.instr",
@@ -161,11 +156,11 @@ class JumpBranchFuncUnit(FuncUnit, Elaboratable):
             self.perf_mispredictions,
         ]
 
-        jump_target_req, jump_target_resp = self.dm.get_dependency(PredictedJumpTargetKey())
+        dm = DependencyContext.get()
+        jump_target_req, jump_target_resp = dm.get_dependency(PredictedJumpTargetKey())
 
         m.submodules.jb = jb = JumpBranch(self.gen_params, fn=self.jb_fn)
         m.submodules.decoder = decoder = self.jb_fn.get_decoder(self.gen_params)
-        m.submodules.fifo_branch_resolved = self.fifo_branch_resolved
 
         fields = self.gen_params.get(CommonLayoutFields)
         instr_fifo_layout = make_layout(
@@ -177,19 +172,20 @@ class JumpBranchFuncUnit(FuncUnit, Elaboratable):
             ("reg_res", self.gen_params.isa.xlen),
             ("taken", 1),
             fields.predicted_taken,
+            fields.ftq_addr,
         )
         m.submodules.instr_fifo = instr_fifo = BasicFifo(instr_fifo_layout, 2)
 
         @def_method(m, self.accept)
         def _():
             instr = instr_fifo.read(m)
-            target_prediction = jump_target_resp(m)
+            prediction = jump_target_resp(m)
 
             jump_result = Mux(instr.taken, instr.jmp_addr, instr.reg_res)
             is_auipc = instr.type == JumpBranchFn.Fn.AUIPC
 
             predicted_addr_correctly = (instr.type != JumpBranchFn.Fn.JALR) | (
-                target_prediction.valid & (target_prediction.cfi_target == instr.jmp_addr)
+                prediction.maybe_cfi_target.valid & (prediction.maybe_cfi_target.value == instr.jmp_addr)
             )
 
             misprediction = Signal()
@@ -202,8 +198,9 @@ class JumpBranchFuncUnit(FuncUnit, Elaboratable):
                 instr.jmp_addr & (0b1 if Extension.C in self.gen_params.isa.extensions else 0b11)
             ) != 0
 
-            async_interrupt_active = self.dm.get_dependency(AsyncInterruptInsertSignalKey())
-            exception_report = self.dm.get_dependency(ExceptionReportKey())
+            async_interrupt_active = dm.get_dependency(AsyncInterruptInsertSignalKey())
+            exception_report = dm.get_dependency(ExceptionReportKey())
+            misprediction_report = dm.get_dependency(MispredictionReportKey())
 
             exception = Signal()
 
@@ -231,16 +228,7 @@ class JumpBranchFuncUnit(FuncUnit, Elaboratable):
                 m.d.comb += exception.eq(1)
                 exception_report(m, rob_id=instr.rob_id, cause=ExceptionCause._COREBLOCKS_MISPREDICTION, pc=jump_result)
 
-            with m.If(~is_auipc):
-                self.fifo_branch_resolved.write(m, from_pc=instr.pc, next_pc=jump_result, misprediction=misprediction)
-                log.debug(
-                    m,
-                    True,
-                    "branch resolved from 0x{:08x} to 0x{:08x}; misprediction: {}",
-                    instr.pc,
-                    jump_result,
-                    misprediction,
-                )
+                misprediction_report(m, ftq_addr=instr.ftq_addr, cfi_target=jump_result)
 
             return {
                 "rob_id": instr.rob_id,
@@ -263,7 +251,7 @@ class JumpBranchFuncUnit(FuncUnit, Elaboratable):
             m.d.top_comb += funct7_info.eq(arg.exec_fn.funct7)
             m.d.top_comb += jb.in_rvc.eq(funct7_info.rvc)
 
-            jump_target_req(m)
+            jump_target_req(m, ftq_idx=arg.ftq_addr.ftq_idx)
 
             instr_fifo.write(
                 m,
@@ -275,6 +263,7 @@ class JumpBranchFuncUnit(FuncUnit, Elaboratable):
                 reg_res=jb.reg_res,
                 taken=jb.taken,
                 predicted_taken=funct7_info.predicted_taken,
+                ftq_addr=arg.ftq_addr,
             )
             self.perf_instr.incr(m, decoder.decode_fn)
 
