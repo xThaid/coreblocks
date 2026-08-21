@@ -107,8 +107,13 @@ class FetchTargetQueue(Elaboratable):
     Tell whether a fetch request (identified by its FTQ pointer and generation) is stale, i.e.
     was invalidated by a redirect after it was issued.
     """
-    bpu_response: Provided[Method]
-    """Accept a branch prediction result and supply the predicted next PC to the FAU."""
+    bpu_fetch_target: Provided[Method]
+    """
+    Accept the next fetch target for an FTQ entry and supply it to the FAU. Steers fetch address generation and
+    nothing else. The fetch-address loop must close in a single cycle.
+    """
+    bpu_prediction_details: Provided[Method]
+    """Accept the full prediction for an FTQ entry together with the predictor metadata."""
     read_prediction: Provided[Method]
     """Return the branch prediction stored for a given FTQ entry (read by the fetch unit)."""
 
@@ -139,7 +144,8 @@ class FetchTargetQueue(Elaboratable):
 
         bpu_layouts = self.gen_params.get(BranchPredictionLayouts)
         self.bpu_request = Method(i=bpu_layouts.request)
-        self.bpu_response = Method(i=bpu_layouts.write_prediction)
+        self.bpu_fetch_target = Method(i=bpu_layouts.fetch_target)
+        self.bpu_prediction_details = Method(i=bpu_layouts.prediction_details)
         self.bpu_flush = Method()
         self.check_stale = Methods(2, i=ifu_layouts.check_stale_req, o=ifu_layouts.check_stale_resp)
         self.bpu_update = Method(i=bpu_layouts.update)
@@ -163,6 +169,7 @@ class FetchTargetQueue(Elaboratable):
 
         fields = self.gen_params.get(CommonLayoutFields)
         fetch_layouts = self.gen_params.get(FetchLayouts)
+        bpu_layouts = self.gen_params.get(BranchPredictionLayouts)
 
         m.submodules.fetch_address_unit = fetch_address_unit = FetchAddressUnit(self.gen_params)
 
@@ -180,6 +187,9 @@ class FetchTargetQueue(Elaboratable):
         # per-entry status stays in registers
         train_layout = make_layout(fields.pc, fields.cfi_target, fields.cfi_type, ("taken", 1))
         m.submodules.train_mem = train_mem = FTQReadQueue(gen_params=self.gen_params, layout=train_layout)
+        m.submodules.bpd_meta_mem = bpd_meta_mem = FTQReadQueue(
+            gen_params=self.gen_params, layout=make_layout(bpu_layouts.meta)
+        )
         train_status_layout = make_layout(("valid", 1), fields.cfi_idx, ("mispredict", 1))
         train_status = Array(
             Signal(train_status_layout, name=f"train_status_{i}") for i in range(self.gen_params.ftq_size)
@@ -235,10 +245,14 @@ class FetchTargetQueue(Elaboratable):
 
         ftq_alloc_transaction.schedule_before(send_fetch_req_transaction)
 
-        @def_method(m, self.bpu_response)
-        def _(pc, ftq_ptr, prediction):
+        @def_method(m, self.bpu_fetch_target)
+        def _(pc, ftq_ptr):
             fetch_address_unit.write(m, pc=pc)
+
+        @def_method(m, self.bpu_prediction_details)
+        def _(ftq_ptr, prediction, meta):
             prediction_mem.write(m, ftq_ptr=ftq_ptr, data=prediction)
+            bpd_meta_mem.write(m, ftq_ptr=ftq_ptr, data={"meta": meta})
 
         @def_method(m, self.read_prediction)
         def _(ftq_ptr):
@@ -301,6 +315,7 @@ class FetchTargetQueue(Elaboratable):
         # instructions have retired, so partially retired blocks never train
         with Transaction(name="FTQ_Train").body(m, ready=train_mem.read_ptr < commit_ptr):
             record = train_mem.read(m).data
+            meta = bpd_meta_mem.read(m).data.meta
             status = train_status[train_mem.read_ptr.ptr]
             with m.If(status.valid):
                 self.bpu_update(
@@ -311,6 +326,7 @@ class FetchTargetQueue(Elaboratable):
                     cfi_type=record.cfi_type,
                     taken=record.taken,
                     mispredict=status.mispredict,
+                    meta=meta,
                 )
 
         @def_method(m, self.commit)

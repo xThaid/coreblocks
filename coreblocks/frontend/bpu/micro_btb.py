@@ -49,7 +49,7 @@ class MicroBTB(Elaboratable):
 
         self.request = Method(i=self.layouts.predictor_request)
         self.predict = Method(o=self.layouts.predictor_predict)
-        self.update = Method(i=self.layouts.update)
+        self.update = Method(i=self.layouts.predictor_update)
 
         self.perf_lookups = HwCounter("frontend.bpu.ubtb.lookups", "Number of prediction requests to the micro-BTB")
         self.perf_hits = TaggedCounter(

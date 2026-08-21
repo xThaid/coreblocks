@@ -17,8 +17,15 @@ log = logging.HardwareLogger("frontend.bpu")
 
 
 class BranchPredictionUnit(Elaboratable):
+
     request: Provided[Method]
-    write_prediction: Required[Method]
+
+    write_fetch_target: Required[Method]
+    """Supplies the next fetch target."""
+
+    write_prediction_details: Required[Method]
+    """Delivers the full prediction for the fetch block together with the predictor metadata."""
+
     update: Provided[Method]
     flush: Provided[Method]
 
@@ -27,7 +34,8 @@ class BranchPredictionUnit(Elaboratable):
         self.layouts = gen_params.get(BranchPredictionLayouts)
 
         self.request = Method(i=self.layouts.request)
-        self.write_prediction = Method(i=self.layouts.write_prediction)
+        self.write_fetch_target = Method(i=self.layouts.fetch_target)
+        self.write_prediction_details = Method(i=self.layouts.prediction_details)
         self.update = Method(i=self.layouts.update)
         self.flush = Method()
 
@@ -71,11 +79,21 @@ class BranchPredictionUnit(Elaboratable):
                 pred.cfi_type.eq(Mux(hit, prediction.cfi_type, CfiType.INVALID)),
                 pred.branch_mask.eq(Mux(hit & CfiType.is_branch(prediction.cfi_type), 1 << prediction.cfi_idx, 0)),
             ]
-            self.write_prediction(m, pc=next_pc, ftq_ptr=stage.ftq_ptr, prediction=pred)
+            self.write_fetch_target(m, pc=next_pc, ftq_ptr=stage.ftq_ptr)
+            # No metadata yet
+            self.write_prediction_details(m, ftq_ptr=stage.ftq_ptr, prediction=pred, meta=C(0, 0))
 
         @def_method(m, self.update)
-        def _(arg):
-            micro_btb.update(m, arg)
+        def _(pc, cfi_target, cfi_idx, cfi_type, taken, mispredict, meta):
+            micro_btb.update(
+                m,
+                pc=pc,
+                cfi_target=cfi_target,
+                cfi_idx=cfi_idx,
+                cfi_type=cfi_type,
+                taken=taken,
+                mispredict=mispredict,
+            )
 
         @def_method(m, self.flush, nonexclusive=True)
         def _():

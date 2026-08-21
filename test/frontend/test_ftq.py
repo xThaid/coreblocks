@@ -1,5 +1,6 @@
 import pytest
 from collections import deque
+from dataclasses import dataclass
 
 from transactron.testing import (
     TestCaseWithSimulator,
@@ -12,8 +13,18 @@ from transactron.testing.method_mock import MethodMock
 
 from coreblocks.arch import CfiType
 from coreblocks.frontend.ftq import FetchTargetQueue
-from coreblocks.params import GenParams
+from coreblocks.params import BranchPredictionConfig, GenParams, MicroBTBConfig
 from coreblocks.params import configurations
+
+
+@dataclass(frozen=True)
+class DummyMicroBTBConfig(MicroBTBConfig):
+    """A micro-BTB that declares prediction metadata"""
+
+    META_WIDTH = 8
+
+    def meta_width(self, fetch_width: int) -> int:
+        return self.META_WIDTH
 
 
 class TestFetchTargetQueue(TestCaseWithSimulator):
@@ -39,7 +50,7 @@ class TestFetchTargetQueue(TestCaseWithSimulator):
             self.bpu_flush_count += 1
 
     @def_method_mock(lambda self: self.ftq.bpu_update)
-    def bpu_update_mock(self, pc, cfi_target, cfi_idx, cfi_type, taken, mispredict):
+    def bpu_update_mock(self, pc, cfi_target, cfi_idx, cfi_type, taken, mispredict, meta):
         @MethodMock.effect
         def eff():
             self.bpu_updates.append(
@@ -78,7 +89,7 @@ class TestFetchTargetQueue(TestCaseWithSimulator):
         while True:
             if self.bpu_requests:
                 pc = self.bpu_requests.popleft()
-                await self.ftq.bpu_response.call(sim, pc=pc + 4, ftq_ptr={"ptr": 0, "parity": 0})
+                await self.ftq.bpu_fetch_target.call(sim, pc=pc + 4, ftq_ptr={"ptr": 0, "parity": 0})
             else:
                 await sim.tick()
 
@@ -279,7 +290,7 @@ class TestFetchTargetQueueFull(TestCaseWithSimulator):
         pass
 
     @def_method_mock(lambda self: self.ftq.bpu_update)
-    def bpu_update_mock(self, pc, cfi_target, cfi_idx, cfi_type, taken, mispredict):
+    def bpu_update_mock(self, pc, cfi_target, cfi_idx, cfi_type, taken, mispredict, meta):
         pass
 
     @def_method_mock(lambda self: self.ftq.bpu_request)
@@ -298,7 +309,7 @@ class TestFetchTargetQueueFull(TestCaseWithSimulator):
         while True:
             if self.bpu_requests:
                 pc = self.bpu_requests.popleft()
-                await self.ftq.bpu_response.call(sim, pc=pc + 4, ftq_ptr={"ptr": 0, "parity": 0})
+                await self.ftq.bpu_fetch_target.call(sim, pc=pc + 4, ftq_ptr={"ptr": 0, "parity": 0})
             else:
                 await sim.tick()
 
@@ -335,7 +346,14 @@ class TestFetchTargetQueueTrain(TestCaseWithSimulator):
     def setup(self, fixture_initialize_testing_env):
         self.start_pc = 0x100
         # 4-instruction fetch blocks so CFI indices distinguish resolves within a block
-        self.gen_params = GenParams(configurations.test.replace(start_pc=self.start_pc, fetch_block_bytes_log=4))
+        self.gen_params = GenParams(
+            configurations.test.replace(
+                start_pc=self.start_pc,
+                fetch_block_bytes_log=4,
+                bpu_config=BranchPredictionConfig(micro_btb=DummyMicroBTBConfig()),
+            )
+        )
+        self.meta = 0xA5
         self.bpu_requests: deque = deque()
         self.bpu_updates: deque = deque()
 
@@ -360,7 +378,7 @@ class TestFetchTargetQueueTrain(TestCaseWithSimulator):
         pass
 
     @def_method_mock(lambda self: self.ftq.bpu_update)
-    def bpu_update_mock(self, pc, cfi_target, cfi_idx, cfi_type, taken, mispredict):
+    def bpu_update_mock(self, pc, cfi_target, cfi_idx, cfi_type, taken, mispredict, meta):
         @MethodMock.effect
         def eff():
             self.bpu_updates.append(
@@ -371,6 +389,7 @@ class TestFetchTargetQueueTrain(TestCaseWithSimulator):
                     "cfi_type": cfi_type,
                     "taken": taken,
                     "mispredict": mispredict,
+                    "meta": meta,
                 }
             )
 
@@ -378,9 +397,12 @@ class TestFetchTargetQueueTrain(TestCaseWithSimulator):
         while True:
             if self.bpu_requests:
                 pc = self.bpu_requests.popleft()
-                await self.ftq.bpu_response.call(sim, pc=pc + 16, ftq_ptr={"ptr": 0, "parity": 0})
+                await self.ftq.bpu_fetch_target.call(sim, pc=pc + 16, ftq_ptr={"ptr": 0, "parity": 0})
             else:
                 await sim.tick()
+
+    async def deliver_prediction(self, sim: TestbenchContext, meta: int):
+        await self.ftq.bpu_prediction_details.call(sim, ftq_ptr={"ptr": 0, "parity": 0}, prediction={}, meta=meta)
 
     async def resolve(self, sim: TestbenchContext, cfi_idx: int, misprediction: int, taken: int, cfi_target: int):
         await self.ftq.resolve.call(
@@ -403,6 +425,7 @@ class TestFetchTargetQueueTrain(TestCaseWithSimulator):
 
     def test_train_sends_resolved_record_after_commit(self):
         async def proc(sim: TestbenchContext):
+            await self.deliver_prediction(sim, self.meta)
             await self.resolve(sim, cfi_idx=2, misprediction=0, taken=1, cfi_target=0x180)
             assert len(self.bpu_updates) == 0
 
@@ -413,6 +436,7 @@ class TestFetchTargetQueueTrain(TestCaseWithSimulator):
             assert update["cfi_type"] == CfiType.BRANCH
             assert update["taken"] == 1
             assert update["mispredict"] == 0
+            assert update["meta"] == self.meta
 
         with self.run_simulation(self.ftq) as sim:
             sim.add_process(self.auto_bpu_process)

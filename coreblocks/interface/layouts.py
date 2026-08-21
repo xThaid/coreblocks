@@ -660,14 +660,25 @@ class BranchPredictionLayouts:
         fields = gen_params.get(CommonLayoutFields)
         fetch_layouts = gen_params.get(FetchLayouts)
 
+        self.meta: LayoutListField = ("meta", gen_params.bpd_meta_width)
+        """Opaque predictor metadata, stored per fetch block and handed back to the BPU at
+        training time"""
+
         self.request = make_layout(fields.pc, fields.ftq_ptr)
-        self.write_prediction = make_layout(fields.pc, fields.ftq_ptr, ("prediction", fetch_layouts.bpu_prediction))
-        self.update = make_layout(
-            fields.pc, fields.cfi_target, fields.cfi_idx, fields.cfi_type, ("taken", 1), ("mispredict", 1)
-        )
+
+        self.fetch_target = make_layout(fields.pc, fields.ftq_ptr)
+        """The next fetch target for an FTQ entry"""
+
+        self.prediction_details = make_layout(fields.ftq_ptr, ("prediction", fetch_layouts.bpu_prediction), self.meta)
+        """The full prediction for an FTQ entry, together with the predictor metadata"""
 
         self.predictor_request = make_layout(fields.pc)
         self.predictor_predict = make_layout(("hit", 1), fields.cfi_target, fields.cfi_idx, fields.cfi_type)
+        self.predictor_update = make_layout(
+            fields.pc, fields.cfi_target, fields.cfi_idx, fields.cfi_type, ("taken", 1), ("mispredict", 1)
+        )
+
+        self.update = make_layout(*self.predictor_update.members.items(), self.meta)
 
 
 class FetchTargetQueueLayouts:

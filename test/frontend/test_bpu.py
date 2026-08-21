@@ -22,23 +22,32 @@ class TestBranchPredictionUnit(TestCaseWithSimulator):
         self.gen_params = GenParams(configurations.test.replace(fetch_block_bytes_log=4))
         self.fbl = self.gen_params.fetch_block_bytes_log
         self.bpu = SimpleTestCircuit(BranchPredictionUnit(self.gen_params))
+        self.fetch_targets: deque = deque()
         self.predictions: deque = deque()
 
     def fall_through(self, pc: int) -> int:
         return ((pc >> self.fbl) + 1) << self.fbl
 
-    @def_method_mock(lambda self: self.bpu.write_prediction)
-    def write_prediction_mock(self, pc, ftq_ptr, prediction):
+    @def_method_mock(lambda self: self.bpu.write_fetch_target)
+    def write_fetch_target_mock(self, pc, ftq_ptr):
         @MethodMock.effect
         def eff():
-            self.predictions.append(pc)
+            self.fetch_targets.append(pc)
+
+    @def_method_mock(lambda self: self.bpu.write_prediction_details)
+    def write_prediction_details_mock(self, ftq_ptr, prediction, meta):
+        @MethodMock.effect
+        def eff():
+            self.predictions.append(prediction)
 
     async def predict(self, sim: TestbenchContext, pc: int) -> int:
+        self.fetch_targets.clear()
         self.predictions.clear()
         await self.bpu.request.call(sim, pc=pc, ftq_ptr={"ptr": 0, "parity": 0})
-        while not self.predictions:
+        while not self.fetch_targets:
             await sim.tick()
-        return self.predictions[-1]
+        assert len(self.predictions) == len(self.fetch_targets)
+        return self.fetch_targets[-1]
 
     def test_unknown_block_falls_through(self):
         pc = 0x100
