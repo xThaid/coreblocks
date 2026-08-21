@@ -63,13 +63,13 @@ class MicroBTBConfig(BPUPredictorConfig):
 class BranchPredictionConfig:
     """Configuration of the branch prediction unit and all of its sub-predictors."""
 
-    micro_btb: MicroBTBConfig = MicroBTBConfig()
-
-    def predictors(self) -> tuple[BPUPredictorConfig, ...]:
-        return (self.micro_btb,)
+    predictors: tuple[BPUPredictorConfig, ...] = (MicroBTBConfig(),)
+    """The components of the prediction pipeline, ordered by priority: later components
+    override earlier ones. The order also defines the layout of the concatenated
+    prediction metadata."""
 
     def components(self) -> tuple[BPUComponentConfig, ...]:
-        return self.predictors()
+        return self.predictors
 
     def bpd_meta_width(self, fetch_width: int) -> int:
         return sum(component.meta_width(fetch_width) for component in self.components())

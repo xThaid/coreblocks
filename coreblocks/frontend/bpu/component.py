@@ -17,6 +17,9 @@ class BPUComponentLayouts:
 
         self.request = make_layout(fields.pc)
 
+        self.combined_prediction = make_layout(("hit", 1), fields.cfi_target, fields.cfi_idx, fields.cfi_type)
+        """The fetch block's selected CFI, combined from all the target predictors."""
+
         self._target_prediction_fields = [("hit", 1), fields.cfi_target, fields.cfi_idx, fields.cfi_type]
         self._update_fields = [
             fields.pc,

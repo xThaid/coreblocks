@@ -350,7 +350,7 @@ class TestFetchTargetQueueTrain(TestCaseWithSimulator):
             configurations.test.replace(
                 start_pc=self.start_pc,
                 fetch_block_bytes_log=4,
-                bpu_config=BranchPredictionConfig(micro_btb=DummyMicroBTBConfig()),
+                bpu_config=BranchPredictionConfig(predictors=(DummyMicroBTBConfig(),)),
             )
         )
         self.meta = 0xA5

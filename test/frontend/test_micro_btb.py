@@ -19,7 +19,7 @@ class TestMicroBTB(TestCaseWithSimulator):
         self.config = MicroBTBConfig(entries_log=2)
         self.gen_params = GenParams(
             configurations.test.replace(
-                fetch_block_bytes_log=4, bpu_config=BranchPredictionConfig(micro_btb=self.config)
+                fetch_block_bytes_log=4, bpu_config=BranchPredictionConfig(predictors=(self.config,))
             )
         )
         self.num_entries = 2**self.config.entries_log
