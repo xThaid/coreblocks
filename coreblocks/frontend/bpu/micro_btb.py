@@ -8,8 +8,8 @@ from transactron.utils.amaranth_ext.coding import PriorityEncoder
 
 from coreblocks.params import GenParams, MicroBTBConfig
 from coreblocks.arch import CfiType
-from coreblocks.interface.layouts import BranchPredictionLayouts
 from coreblocks.frontend import FrontendParams
+from coreblocks.frontend.bpu.component import TargetPredictor
 from coreblocks.cache.plru import TreePLRU
 
 __all__ = ["MicroBTB"]
@@ -17,7 +17,7 @@ __all__ = ["MicroBTB"]
 log = logging.HardwareLogger("frontend.bpu.btb")
 
 
-class MicroBTB(Elaboratable):
+class MicroBTB(TargetPredictor):
     """A small, fully-associative, single-cycle branch target buffer (micro-BTB).
 
     The micro-BTB maps a fetch block address to a predicted next-fetch PC and
@@ -35,7 +35,7 @@ class MicroBTB(Elaboratable):
     """
 
     def __init__(self, gen_params: GenParams, config: MicroBTBConfig):
-        self.gen_params = gen_params
+        super().__init__(gen_params, meta_width=config.meta_width(gen_params.fetch_width))
 
         self.num_entries = 2**config.entries_log
         self.useful_cnt_width = config.useful_cnt_width
@@ -44,12 +44,6 @@ class MicroBTB(Elaboratable):
         # The tag is the full fetch-block address - aliasing is impossible
         # TODO: maybe some aliasing is fine?
         self.tag_width = xlen - gen_params.fetch_block_bytes_log
-
-        self.layouts = gen_params.get(BranchPredictionLayouts)
-
-        self.request = Method(i=self.layouts.predictor_request)
-        self.predict = Method(o=self.layouts.predictor_predict)
-        self.update = Method(i=self.layouts.predictor_update)
 
         self.perf_lookups = HwCounter("frontend.bpu.ubtb.lookups", "Number of prediction requests to the micro-BTB")
         self.perf_hits = TaggedCounter(
@@ -121,10 +115,11 @@ class MicroBTB(Elaboratable):
                 "cfi_target": req_entry.target,
                 "cfi_idx": req_entry.cfi_idx,
                 "cfi_type": req_entry.cfi_type,
+                "meta": C(0, self.meta_width),
             }
 
         @def_method(m, self.update)
-        def _(pc, cfi_target, cfi_idx, cfi_type, taken, mispredict):
+        def _(pc, cfi_target, cfi_idx, cfi_type, taken, mispredict, meta):
             fb = Signal(self.tag_width)
             m.d.av_comb += fb.eq(fparams.fb_addr(pc))
 

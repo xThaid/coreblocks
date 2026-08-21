@@ -8,7 +8,6 @@ from transactron.lib import Pipe
 from coreblocks.params import *
 from coreblocks.arch import CfiType
 from coreblocks.frontend import FrontendParams
-from coreblocks.frontend.bpu.micro_btb import MicroBTB
 from coreblocks.interface.layouts import CommonLayoutFields
 from coreblocks.interface.layouts import BranchPredictionLayouts
 from coreblocks.interface.layouts import FetchLayouts
@@ -46,7 +45,8 @@ class BranchPredictionUnit(Elaboratable):
         fields = self.gen_params.get(CommonLayoutFields)
         fetch_layouts = self.gen_params.get(FetchLayouts)
 
-        m.submodules.micro_btb = micro_btb = MicroBTB(self.gen_params, self.gen_params.bpu_config.micro_btb)
+        micro_btb_config = self.gen_params.bpu_config.micro_btb
+        m.submodules.micro_btb = micro_btb = micro_btb_config.get_module(self.gen_params)
         m.submodules.pipe = pipe = Pipe(
             layout=make_layout(fields.pc, fields.ftq_ptr, ("entry_idx", self.gen_params.fetch_width_log))
         )
@@ -80,8 +80,7 @@ class BranchPredictionUnit(Elaboratable):
                 pred.branch_mask.eq(Mux(hit & CfiType.is_branch(prediction.cfi_type), 1 << prediction.cfi_idx, 0)),
             ]
             self.write_fetch_target(m, pc=next_pc, ftq_ptr=stage.ftq_ptr)
-            # No metadata yet
-            self.write_prediction_details(m, ftq_ptr=stage.ftq_ptr, prediction=pred, meta=C(0, 0))
+            self.write_prediction_details(m, ftq_ptr=stage.ftq_ptr, prediction=pred, meta=prediction.meta)
 
         @def_method(m, self.update)
         def _(pc, cfi_target, cfi_idx, cfi_type, taken, mispredict, meta):
@@ -93,6 +92,7 @@ class BranchPredictionUnit(Elaboratable):
                 cfi_type=cfi_type,
                 taken=taken,
                 mispredict=mispredict,
+                meta=meta[: micro_btb.meta_width],
             )
 
         @def_method(m, self.flush, nonexclusive=True)

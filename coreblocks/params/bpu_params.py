@@ -1,15 +1,23 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from coreblocks.params.genparams import GenParams
+    from coreblocks.frontend.bpu.component import BPUComponent
 
 __all__ = [
     "BPUComponentConfig",
+    "BPUPredictorConfig",
     "BranchPredictionConfig",
     "MicroBTBConfig",
 ]
 
 
 @dataclass(frozen=True)
-class BPUComponentConfig:
-    """Configuration of a single sub-predictor of the branch prediction unit."""
+class BPUComponentConfig(ABC):
+    """Configuration of a single sub-component of the branch prediction unit."""
 
     def meta_width(self, fetch_width: int) -> int:
         """Width of the metadata this component produces with every prediction and needs
@@ -21,7 +29,16 @@ class BPUComponentConfig:
 
 
 @dataclass(frozen=True)
-class MicroBTBConfig(BPUComponentConfig):
+class BPUPredictorConfig(BPUComponentConfig):
+    """Configuration of a component that predicts, i.e. participates in the BPU pipeline."""
+
+    @abstractmethod
+    def get_module(self, gen_params: "GenParams") -> "BPUComponent":
+        raise NotImplementedError()
+
+
+@dataclass(frozen=True)
+class MicroBTBConfig(BPUPredictorConfig):
     """Configuration of the micro-BTB."""
 
     entries_log: int = 3
@@ -36,6 +53,11 @@ class MicroBTBConfig(BPUComponentConfig):
         if self.useful_cnt_width < 1:
             raise ValueError("Micro-BTB usefulness counter must be at least 1 bit wide")
 
+    def get_module(self, gen_params: "GenParams") -> "BPUComponent":
+        from coreblocks.frontend.bpu.micro_btb import MicroBTB
+
+        return MicroBTB(gen_params, self)
+
 
 @dataclass(frozen=True)
 class BranchPredictionConfig:
@@ -43,8 +65,11 @@ class BranchPredictionConfig:
 
     micro_btb: MicroBTBConfig = MicroBTBConfig()
 
-    def components(self) -> tuple[BPUComponentConfig, ...]:
+    def predictors(self) -> tuple[BPUPredictorConfig, ...]:
         return (self.micro_btb,)
+
+    def components(self) -> tuple[BPUComponentConfig, ...]:
+        return self.predictors()
 
     def bpd_meta_width(self, fetch_width: int) -> int:
         return sum(component.meta_width(fetch_width) for component in self.components())

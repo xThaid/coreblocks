@@ -672,13 +672,15 @@ class BranchPredictionLayouts:
         self.prediction_details = make_layout(fields.ftq_ptr, ("prediction", fetch_layouts.bpu_prediction), self.meta)
         """The full prediction for an FTQ entry, together with the predictor metadata"""
 
-        self.predictor_request = make_layout(fields.pc)
-        self.predictor_predict = make_layout(("hit", 1), fields.cfi_target, fields.cfi_idx, fields.cfi_type)
-        self.predictor_update = make_layout(
-            fields.pc, fields.cfi_target, fields.cfi_idx, fields.cfi_type, ("taken", 1), ("mispredict", 1)
+        self.update = make_layout(
+            fields.pc,
+            fields.cfi_target,
+            fields.cfi_idx,
+            fields.cfi_type,
+            ("taken", 1),
+            ("mispredict", 1),
+            self.meta,
         )
-
-        self.update = make_layout(*self.predictor_update.members.items(), self.meta)
 
 
 class FetchTargetQueueLayouts:
